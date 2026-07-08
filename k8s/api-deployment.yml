@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plannerproapi
+  namespace: brr-dev-ingress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plannerproapi
+  template:
+    metadata:
+      labels:
+        app: plannerproapi
+    spec:
+      imagePullSecrets:
+        - name: buddynetworks37436e08-auth
+      containers:
+        - name: plannerproapi
+          image: buddynetworks.azurecr.io/plannerproapi
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: ASPNETCORE_URLS
+              value: http://+:8080
+            # --- Production resources, sourced from the plannerpro-secrets Secret ---
+            - name: ConnectionStrings__plannerdb
+              valueFrom:
+                secretKeyRef:
+                  name: plannerpro-secrets
+                  key: ConnectionStrings__plannerdb
+            - name: SeedUser__Email
+              valueFrom:
+                secretKeyRef:
+                  name: plannerpro-secrets
+                  key: SeedUser__Email
+            - name: SeedUser__Password
+              valueFrom:
+                secretKeyRef:
+                  name: plannerpro-secrets
+                  key: SeedUser__Password
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # /api/ping is anonymous and always mapped (health/alive are dev-only).
+          # Generous startup budget covers EF migrations + seeding on first boot.
+          startupProbe:
+            httpGet:
+              path: /api/ping
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+          livenessProbe:
+            httpGet:
+              path: /api/ping
+              port: 8080
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/ping
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3

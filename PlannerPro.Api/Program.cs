@@ -1,28 +1,46 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PlannerPro.Api.Api;
 using PlannerPro.Api.Data;
+using PlannerPro.Api.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Aspire wiring: health checks, OpenTelemetry, service discovery, resilience.
 builder.AddServiceDefaults();
 
-// EF Core context bound to the Aspire-managed "plannerdb" SQL Server database.
-// Adds connection resiliency, health checks, and telemetry automatically.
+// EF Core context bound to the "plannerdb" connection string. Locally Aspire
+// injects it (ConnectionStrings__plannerdb); in AKS it comes from the
+// plannerpro-secrets Secret mounted as the same environment variable.
 builder.AddSqlServerDbContext<PlannerDbContext>("plannerdb");
+
+// Behind the AKS ingress, TLS terminates at the edge and traffic reaches the
+// container over plain HTTP. Honor X-Forwarded-Proto/For so Request.IsHttps
+// reflects the *original* request. Without this the Secure auth cookie is
+// dropped and UseHttpsRedirection bounces an already-HTTPS request into a loop.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // The ingress is the only proxy in front of us; trust it without pinning IPs.
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
 
 // Single-user auth: ASP.NET Core Identity with a cookie for the same-origin SPA.
 builder.Services
-    .AddIdentityCore<IdentityUser>(o =>
+    .AddIdentityCore<ApplicationUser>(o =>
     {
         o.User.RequireUniqueEmail = true;
         o.Password.RequiredLength = 8;
     })
     .AddEntityFrameworkStores<PlannerDbContext>()
+    // Registers the "Default" DataProtector token provider used by admin
+    // password resets (GeneratePasswordResetTokenAsync / ResetPasswordAsync).
+    .AddDefaultTokenProviders()
     .AddSignInManager();
 
 builder.Services
@@ -72,7 +90,12 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(scope.ServiceProvider, app.Configuration, logger);
 }
 
+// Must run before HTTPS redirection / cookie issuance so the ingress-forwarded
+// scheme is applied to the request first.
+app.UseForwardedHeaders();
+
 // Aspire default endpoints: /health and /alive (Development only by default).
+// In AKS the Kubernetes probes hit the anonymous /api/ping instead.
 app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -119,10 +142,13 @@ app.MapControllers();
 // Planner data API (sprints, board, goals, tasks) — requires auth.
 app.MapPlannerApi();
 
-// --- Auth endpoints (single user) ---
+// Team & capacity management API (users + capacity); writes are admin-guarded.
+app.MapTeamApi();
+
+// --- Auth endpoints ---
 var auth = app.MapGroup("/api/auth");
 
-auth.MapPost("/login", async (LoginRequest req, SignInManager<IdentityUser> signIn) =>
+auth.MapPost("/login", async (LoginRequest req, SignInManager<ApplicationUser> signIn) =>
 {
     var result = await signIn.PasswordSignInAsync(req.Email, req.Password, isPersistent: true, lockoutOnFailure: false);
     return result.Succeeded
@@ -130,16 +156,23 @@ auth.MapPost("/login", async (LoginRequest req, SignInManager<IdentityUser> sign
         : Results.Unauthorized();
 });
 
-auth.MapPost("/logout", async (SignInManager<IdentityUser> signIn) =>
+auth.MapPost("/logout", async (SignInManager<ApplicationUser> signIn) =>
 {
     await signIn.SignOutAsync();
     return Results.Ok();
 });
 
-auth.MapGet("/me", (HttpContext ctx) =>
-    ctx.User.Identity?.IsAuthenticated == true
-        ? Results.Ok(new { email = ctx.User.Identity!.Name })
-        : Results.Unauthorized());
+// Returns the signed-in user's identity plus admin flag + display name so the
+// SPA can gate the management UI. Looks up the DB record (admin can change).
+auth.MapGet("/me", async (HttpContext ctx, UserManager<ApplicationUser> users) =>
+{
+    if (ctx.User.Identity?.IsAuthenticated != true)
+        return Results.Unauthorized();
+    var user = await users.GetUserAsync(ctx.User);
+    return user is null
+        ? Results.Unauthorized()
+        : Results.Ok(new { email = user.Email, displayName = user.DisplayName, isAdmin = user.IsAdmin });
+});
 
 app.MapGet("/api/ping", () => Results.Ok(new
 {

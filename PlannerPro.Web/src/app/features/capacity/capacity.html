@@ -1,0 +1,83 @@
+<section class="capacity">
+  <header class="page-head">
+    <div>
+      <h1>Capacity planning</h1>
+      <p class="sub">Assigned story points vs. each person’s capacity, per sprint. Click a capacity to override it for that sprint.</p>
+    </div>
+    <div class="head-actions">
+      <a class="mini" routerLink="/team">Manage team →</a>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button type="button" class="mini" (click)="store.prev()">← Earlier</button>
+    <button type="button" class="mini" (click)="store.next()">Later →</button>
+    <span class="legend">
+      <span class="swatch ok"></span> within capacity
+      <span class="swatch near"></span> near
+      <span class="swatch over"></span> over
+      <span class="ov-key">•</span> per-sprint override
+    </span>
+  </div>
+
+  @if (store.isLoading()) {
+    <p class="muted">Loading capacity…</p>
+  } @else if (store.error()) {
+    <p class="err">Couldn’t load capacity. You may not have admin access.</p>
+  } @else if (store.value(); as m) {
+    <div class="table-scroll">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th class="corner">Team member</th>
+            @for (s of m.sprints; track s.id) {
+              <th class="sprint-col">
+                <span class="snum">Sprint {{ s.number }}</span>
+                <span class="srange">{{ shortRange(s.startDate, s.endDate) }}</span>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of m.rows; track row.user.id) {
+            <tr>
+              <th class="member">
+                <span class="name">{{ row.user.displayName }}</span>
+                <span class="default">default {{ row.user.defaultCapacityPoints }} pts</span>
+              </th>
+              @for (cell of row.cells; track cell.sprintId) {
+                <td class="cell {{ cellClass(cell) }}"
+                    [class.editing]="editingKey() === key(row.user.id, cell.sprintId)">
+                  @if (editingKey() === key(row.user.id, cell.sprintId)) {
+                    <div class="editor">
+                      <input type="number" min="0" max="200" autofocus
+                             [value]="draft()" (input)="draft.set(+$any($event.target).value)"
+                             (keyup.enter)="save(row, cell)" (keyup.escape)="cancel()" />
+                      <div class="editor-actions">
+                        <button type="button" class="xmini primary" (click)="save(row, cell)">Save</button>
+                        @if (cell.isOverride) {
+                          <button type="button" class="xmini" (click)="clearOverride(row, cell)" title="Reset to default">Reset</button>
+                        }
+                        <button type="button" class="xmini" (click)="cancel()">✕</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <button type="button" class="cell-btn" (click)="startEdit(row, cell)"
+                            [title]="'Assigned ' + cell.assignedPoints + ' of ' + cell.capacity + ' pts' + (cell.isOverride ? ' (override)' : '')">
+                      <span class="load">{{ cell.assignedPoints }}</span>
+                      <span class="slash">/</span>
+                      <span class="cap">{{ cell.capacity }}<span class="ov" [class.on]="cell.isOverride">•</span></span>
+                    </button>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (!m.rows.length) {
+      <p class="muted">No team members yet. <a routerLink="/team">Add one →</a></p>
+    }
+  }
+</section>

@@ -5,15 +5,16 @@ using PlannerPro.Api.Domain;
 
 namespace PlannerPro.Api.Data;
 
-/// <summary>EF Core context for PlannerPro. Extends IdentityDbContext so the
-/// single-user auth tables live in the same database.</summary>
+/// <summary>EF Core context for PlannerPro. Extends IdentityDbContext (with the
+/// custom <see cref="ApplicationUser"/>) so auth tables live in the same database.</summary>
 public class PlannerDbContext(DbContextOptions<PlannerDbContext> options)
-    : IdentityDbContext<IdentityUser>(options)
+    : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Sprint> Sprints => Set<Sprint>();
     public DbSet<SprintGoal> SprintGoals => Set<SprintGoal>();
     public DbSet<PlannerTask> Tasks => Set<PlannerTask>();
+    public DbSet<SprintCapacity> SprintCapacities => Set<SprintCapacity>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -65,6 +66,30 @@ public class PlannerDbContext(DbContextOptions<PlannerDbContext> options)
                 .WithMany(g => g.Tasks)
                 .HasForeignKey(t => t.SprintGoalId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Assignee is optional; deleting a user unassigns their tasks
+            // (SetNull) rather than deleting the work.
+            e.HasOne(t => t.Assignee)
+                .WithMany(u => u.AssignedTasks)
+                .HasForeignKey(t => t.AssigneeId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<SprintCapacity>(e =>
+        {
+            // One override row per (user, sprint).
+            e.HasIndex(c => new { c.UserId, c.SprintId }).IsUnique();
+
+            e.HasOne(c => c.User)
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Sprints are never deleted; Restrict avoids a second cascade path.
+            e.HasOne(c => c.Sprint)
+                .WithMany()
+                .HasForeignKey(c => c.SprintId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

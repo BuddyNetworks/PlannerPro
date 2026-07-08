@@ -37,7 +37,7 @@
       <div class="effort" [class.over]="b.isOverloaded">
         <div class="effort-text">
           <span class="pts">{{ b.totalPoints }}</span>
-          <span class="of">/ {{ b.overloadThreshold }} pts</span>
+          <span class="of">/ {{ b.teamCapacity }} team pts</span>
           @if (b.isOverloaded) {
             <span class="badge-over">⚠ Overloaded</span>
           }
@@ -49,6 +49,23 @@
     }
   </section>
 
+  @if (b && b.capacity.length) {
+    <section class="team-load" title="Assigned points vs. capacity this sprint">
+      @for (u of b.capacity; track u.userId) {
+        <span class="load-chip" [class.over]="u.isOver">
+          <span class="lname">{{ u.displayName }}</span>
+          <span class="lval">{{ u.assignedPoints }}/{{ u.capacity }}</span>
+        </span>
+      }
+      @if (b.unassignedPoints > 0) {
+        <span class="load-chip unassigned">
+          <span class="lname">Unassigned</span>
+          <span class="lval">{{ b.unassignedPoints }}</span>
+        </span>
+      }
+    </section>
+  }
+
   @if (b) {
     <section class="columns">
       @for (col of b.columns; track col.projectId) {
@@ -59,3 +76,6 @@
     <p class="empty">No sprint data.</p>
   }
 </div>
+
+<app-board-drawer />
+

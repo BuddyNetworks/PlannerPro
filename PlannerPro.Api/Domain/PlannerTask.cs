@@ -12,6 +12,9 @@ public class PlannerTask
 
     public required string Label { get; set; }
 
+    /// <summary>Optional longer task detail, stored as Markdown.</summary>
+    public string? Description { get; set; }
+
     public bool IsDone { get; set; }
 
     /// <summary>Fibonacci effort estimate; UI warns when above 8.</summary>
@@ -19,6 +22,11 @@ public class PlannerTask
 
     /// <summary>Optional lightweight priority.</summary>
     public TaskPriority? Priority { get; set; }
+
+    /// <summary>Optional assignee. Null = unassigned. When the assignee is
+    /// deleted this is set back to null (the task survives).</summary>
+    public string? AssigneeId { get; set; }
+    public ApplicationUser? Assignee { get; set; }
 
     /// <summary>Ordering within its goal.</summary>
     public int SortOrder { get; set; }

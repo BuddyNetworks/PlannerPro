@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plannerproweb
+  namespace: brr-dev-ingress
+spec:
+  type: ClusterIP
+  selector:
+    app: plannerproweb
+  ports:
+    - port: 80
+      targetPort: 80

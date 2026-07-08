@@ -1,10 +1,11 @@
 import { Component, computed, inject } from '@angular/core';
 import { BoardStore } from '../../core/board-store';
 import { BoardColumnComponent } from './board-column';
+import { BoardDrawerComponent } from './board-drawer';
 
 @Component({
   selector: 'app-board',
-  imports: [BoardColumnComponent],
+  imports: [BoardColumnComponent, BoardDrawerComponent],
   templateUrl: './board.html',
   styleUrl: './board.scss',
 })
@@ -13,11 +14,11 @@ export class BoardView {
   readonly board = this.store.value;
   readonly loading = this.store.isLoading;
 
-  /** Fraction of the overload threshold currently used, clamped to [0,1]. */
+  /** Fraction of total team capacity currently used, clamped to [0,1]. */
   readonly effortFraction = computed(() => {
     const b = this.board();
-    if (!b) return 0;
-    return Math.min(1, b.totalPoints / b.overloadThreshold);
+    if (!b || b.teamCapacity <= 0) return 0;
+    return Math.min(1, b.totalPoints / b.teamCapacity);
   });
 
   constructor() {

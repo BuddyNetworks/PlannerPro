@@ -32,6 +32,12 @@
     }
   }
 
+  .head-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .pts {
     color: var(--text-dim);
     font-size: 12px;
@@ -43,6 +49,50 @@
     &.warn {
       color: var(--warn);
     }
+  }
+
+  .edit-col {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+  }
+}
+
+/* Goal notes preview (rendered markdown, clamped) */
+.notes-preview {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+  margin: -2px -4px 2px;
+  max-height: 96px;
+  overflow: hidden;
+  position: relative;
+  color: var(--text-dim);
+  font-size: 12.5px;
+
+  &:hover {
+    background: var(--surface-2);
+  }
+}
+
+.has-desc {
+  flex: none;
+  background: none;
+  border: none;
+  font-size: 12px;
+  opacity: 0.65;
+  padding: 0 2px;
+
+  &:hover {
+    opacity: 1;
   }
 }
 
@@ -101,6 +151,21 @@
   .progress {
     color: var(--text-faint);
     font-size: 12px;
+    margin-left: auto;
+  }
+
+  .open-goal {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 13px;
+    padding: 0 4px;
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      color: var(--accent);
+      background: var(--surface-3);
+    }
   }
 }
 
@@ -144,7 +209,8 @@
   &:hover {
     background: var(--surface-2);
 
-    .del {
+    .del,
+    .open-task {
       opacity: 1;
     }
   }
@@ -198,6 +264,19 @@
     }
   }
 
+  .task-assignee {
+    flex: none;
+    padding: 2px 3px;
+    font-size: 11.5px;
+    max-width: 76px;
+    color: var(--text-dim);
+
+    &.unassigned {
+      color: var(--text-faint);
+      border-style: dashed;
+    }
+  }
+
   .del {
     flex: none;
     opacity: 0;
@@ -210,6 +289,21 @@
 
     &:hover {
       color: var(--danger);
+    }
+  }
+
+  .open-task {
+    flex: none;
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 3px;
+
+    &:hover {
+      color: var(--accent);
     }
   }
 }

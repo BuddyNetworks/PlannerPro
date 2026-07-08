@@ -13,6 +13,37 @@
   margin-bottom: 20px;
 }
 
+.team-load {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.load-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 12.5px;
+
+  .lname { color: var(--text-dim); }
+  .lval { font-weight: 700; color: var(--text); }
+
+  &.over {
+    border-color: rgba(242, 85, 90, 0.5);
+    background: rgba(242, 85, 90, 0.12);
+    .lval { color: var(--danger); }
+  }
+  &.unassigned {
+    border-style: dashed;
+    .lval { color: var(--text-dim); }
+  }
+}
+
 .nav-block {
   display: flex;
   align-items: center;

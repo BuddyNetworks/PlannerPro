@@ -7,6 +7,10 @@
     <nav class="nav">
       <a routerLink="/board" routerLinkActive="active">Sprint Board</a>
       <a routerLink="/timeline" routerLinkActive="active">Timeline</a>
+      @if (auth.isAdmin()) {
+        <a routerLink="/capacity" routerLinkActive="active">Capacity</a>
+        <a routerLink="/team" routerLinkActive="active">Team</a>
+      }
     </nav>
     <div class="spacer"></div>
     <div class="user">

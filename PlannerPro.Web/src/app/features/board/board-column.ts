@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { BoardStore } from '../../core/board-store';
+import { MarkdownPipe } from '../../core/markdown.pipe';
 import {
   BoardColumn,
   FIBONACCI_POINTS,
@@ -15,12 +16,28 @@ import {
 
 @Component({
   selector: 'app-board-column',
+  imports: [MarkdownPipe],
   templateUrl: './board-column.html',
   styleUrl: './board-column.scss',
 })
 export class BoardColumnComponent {
   readonly column = input.required<BoardColumn>();
   private readonly store = inject(BoardStore);
+
+  openDrawer() {
+    this.store.openColumnDrawer(this.column().projectId);
+  }
+
+  openGoal() {
+    this.store.openGoalDrawer(this.column().projectId);
+  }
+
+  openTask(task: TaskItem) {
+    this.store.openTaskDrawer(this.column().projectId, task.id);
+  }
+
+  /** Assignee options come from the board's per-user capacity list (all users). */
+  readonly assignees = computed(() => this.store.value()?.capacity ?? []);
 
   readonly statuses = GOAL_STATUSES;
   readonly statusLabel = STATUS_LABEL;
@@ -94,6 +111,16 @@ export class BoardColumnComponent {
   changePriority(task: TaskItem, value: string) {
     const priority = value ? (value as TaskPriority) : null;
     this.store.setPriority(this.column().projectId, task, priority);
+  }
+
+  changeAssignee(task: TaskItem, value: string) {
+    this.store.setAssignee(this.column().projectId, task, value || null);
+  }
+
+  initials(name: string | null): string {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    return (parts[0]?.[0] ?? '').concat(parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '').toUpperCase();
   }
 
   remove(task: TaskItem) {

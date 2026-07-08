@@ -1,0 +1,202 @@
+@if (col(); as c) {
+  <div class="drawer-backdrop" (click)="close()"></div>
+  <aside class="drawer" [style.--proj]="c.colorHex">
+    <header class="drawer-head">
+      <div class="title">
+        <span class="dot"></span>
+        <span class="pname">{{ c.projectName }}</span>
+        <span class="scope-tag">
+          {{ scope() === 'goal' ? 'Sprint goal' : scope() === 'task' ? 'Task' : 'Edit column' }}
+        </span>
+      </div>
+      <button type="button" class="icon-btn" (click)="close()" title="Close">✕</button>
+    </header>
+
+    <div class="drawer-body">
+      @if (scope() === 'task') {
+        <!-- ============ TASK SCOPE ============ -->
+        @if (task(); as t) {
+          <section class="block">
+            <p class="breadcrumb">in “{{ c.goalText || 'Untitled goal' }}”</p>
+
+            <label class="field">
+              <span class="flabel">Task</span>
+              <input class="headline" [value]="tLabel()" (input)="tLabel.set($any($event.target).value)"
+                     placeholder="What needs doing…" />
+            </label>
+
+            <div class="field">
+              <div class="flabel-row">
+                <span class="flabel">Description <span class="md-hint">Markdown</span></span>
+                <div class="seg">
+                  <button type="button" [class.on]="!tDescPreview()" (click)="tDescPreview.set(false)">Write</button>
+                  <button type="button" [class.on]="tDescPreview()" (click)="tDescPreview.set(true)">Preview</button>
+                </div>
+              </div>
+              @if (tDescPreview()) {
+                <div class="md-preview" [innerHTML]="tDesc() | markdown"></div>
+                @if (!tDesc().trim()) { <p class="md-empty">Nothing to preview yet.</p> }
+              } @else {
+                <textarea class="notes-area" rows="8" [value]="tDesc()"
+                          (input)="tDesc.set($any($event.target).value)"
+                          placeholder="Detail, acceptance criteria, links…"></textarea>
+              }
+            </div>
+
+            <div class="task-meta-row">
+              <label class="chk"><input type="checkbox" [checked]="t.isDone" (change)="toggle(t)" /> Done</label>
+              <select class="m-pts" [class.warn]="t.points > warnAbove" (change)="changePoints(t, $any($event.target).value)" title="Story points">
+                @for (p of pointOptions; track p) {
+                  <option [value]="p" [selected]="p === t.points">{{ p }} pts</option>
+                }
+              </select>
+              <select class="m-prio" [class]="'prio-' + (t.priority ?? 'none').toLowerCase()" (change)="changePriority(t, $any($event.target).value)" title="Priority">
+                <option value="" [selected]="!t.priority">Priority –</option>
+                @for (p of priorities; track p) {
+                  <option [value]="p" [selected]="p === t.priority">{{ p }}</option>
+                }
+              </select>
+              <select class="m-assignee" [class.unassigned]="!t.assigneeId" (change)="changeAssignee(t, $any($event.target).value)" title="Assignee">
+                <option value="" [selected]="!t.assigneeId">Unassigned</option>
+                @for (u of assignees(); track u.userId) {
+                  <option [value]="u.userId" [selected]="u.userId === t.assigneeId">{{ u.displayName }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="block-actions">
+              <button type="button" class="btn primary" (click)="saveTask()" [disabled]="!tLabel().trim() || tSaving()">Save task</button>
+              <button type="button" class="btn danger" (click)="removeTaskAndClose()">Delete</button>
+              <button type="button" class="btn ghost" (click)="openFullColumn()">Open full column ↗</button>
+            </div>
+          </section>
+        } @else {
+          <p class="empty-note">This task no longer exists.</p>
+        }
+      } @else {
+        <!-- ============ GOAL (+ COLUMN) SCOPE ============ -->
+        <section class="block">
+          <label class="field">
+            <span class="flabel">Sprint goal</span>
+            <input class="headline" [value]="headline()" (input)="headline.set($any($event.target).value)"
+                   placeholder="One clear outcome for this sprint…" />
+          </label>
+
+          <label class="field">
+            <span class="flabel">Status</span>
+            <select class="status-select" [class]="'st-' + status().toLowerCase()" (change)="status.set($any($event.target).value)">
+              @for (s of statuses; track s) {
+                <option [value]="s" [selected]="s === status()">{{ statusLabel[s] }}</option>
+              }
+            </select>
+          </label>
+
+          <div class="field">
+            <div class="flabel-row">
+              <span class="flabel">Notes <span class="md-hint">Markdown</span></span>
+              <div class="seg">
+                <button type="button" [class.on]="!notesPreview()" (click)="notesPreview.set(false)">Write</button>
+                <button type="button" [class.on]="notesPreview()" (click)="notesPreview.set(true)">Preview</button>
+              </div>
+            </div>
+            @if (notesPreview()) {
+              <div class="md-preview" [innerHTML]="notes() | markdown"></div>
+              @if (!notes().trim()) { <p class="md-empty">Nothing to preview yet.</p> }
+            } @else {
+              <textarea class="notes-area" rows="8" [value]="notes()" (input)="notes.set($any($event.target).value)"
+                        placeholder="Context, acceptance criteria, links… **bold**, - lists, `code`"></textarea>
+            }
+          </div>
+
+          <div class="block-actions">
+            <button type="button" class="btn primary" (click)="saveGoal()" [disabled]="!headline().trim() || saving()">Save goal &amp; notes</button>
+            @if (scope() === 'goal') {
+              <button type="button" class="btn ghost" (click)="openFullColumn()">Edit tasks too ↗</button>
+            }
+          </div>
+        </section>
+
+        @if (scope() === 'column') {
+          <section class="block">
+            <div class="flabel">Tasks <span class="count">{{ c.tasks.length }}</span></div>
+
+            <ul class="dtasks">
+              @for (task of c.tasks; track task.id) {
+                <li class="dtask" [class.done]="task.isDone">
+                  <div class="dtask-main">
+                    <input type="checkbox" [checked]="task.isDone" (change)="toggle(task)" title="Toggle complete" />
+
+                    @if (editingLabelId() === task.id) {
+                      <input class="dtask-edit" [value]="labelDraft()" (input)="labelDraft.set($any($event.target).value)"
+                             (keydown.enter)="saveLabel(task)" (keydown.escape)="editingLabelId.set(null)" (blur)="saveLabel(task)" autofocus />
+                    } @else {
+                      <span class="dtask-label" (click)="startLabel(task)" title="Click to edit">{{ task.label }}</span>
+                    }
+
+                    <button type="button" class="desc-toggle" [class.has]="task.description" (click)="toggleDesc(task)"
+                            [title]="task.description ? 'Edit description' : 'Add description'">📝</button>
+                    <button type="button" class="open-one" (click)="openTaskScope(task)" title="Open this task on its own">⤢</button>
+                    <button type="button" class="del" (click)="remove(task)" title="Delete task">×</button>
+                  </div>
+
+                  <div class="dtask-meta">
+                    <select class="m-prio" [class]="'prio-' + (task.priority ?? 'none').toLowerCase()" (change)="changePriority(task, $any($event.target).value)" title="Priority">
+                      <option value="" [selected]="!task.priority">Priority –</option>
+                      @for (p of priorities; track p) {
+                        <option [value]="p" [selected]="p === task.priority">{{ p }}</option>
+                      }
+                    </select>
+                    <select class="m-pts" [class.warn]="task.points > warnAbove" (change)="changePoints(task, $any($event.target).value)" title="Story points">
+                      @for (p of pointOptions; track p) {
+                        <option [value]="p" [selected]="p === task.points">{{ p }} pts</option>
+                      }
+                    </select>
+                    <select class="m-assignee" [class.unassigned]="!task.assigneeId" (change)="changeAssignee(task, $any($event.target).value)" title="Assignee">
+                      <option value="" [selected]="!task.assigneeId">Unassigned</option>
+                      @for (u of assignees(); track u.userId) {
+                        <option [value]="u.userId" [selected]="u.userId === task.assigneeId">{{ u.displayName }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  @if (descId() === task.id) {
+                    <div class="desc-editor">
+                      <div class="seg small">
+                        <button type="button" [class.on]="!descPreview()" (click)="descPreview.set(false)">Write</button>
+                        <button type="button" [class.on]="descPreview()" (click)="descPreview.set(true)">Preview</button>
+                      </div>
+                      @if (descPreview()) {
+                        <div class="md-preview" [innerHTML]="descDraft() | markdown"></div>
+                        @if (!descDraft().trim()) { <p class="md-empty">Nothing to preview yet.</p> }
+                      } @else {
+                        <textarea class="desc-area" rows="4" [value]="descDraft()" (input)="descDraft.set($any($event.target).value)"
+                                  placeholder="Task detail in Markdown…"></textarea>
+                      }
+                      <div class="desc-actions">
+                        <button type="button" class="btn primary sm" (click)="saveDesc(task)">Save</button>
+                        <button type="button" class="btn sm" (click)="descId.set(null)">Cancel</button>
+                      </div>
+                    </div>
+                  } @else if (task.description) {
+                    <div class="desc-render md-preview" [innerHTML]="task.description | markdown"></div>
+                  }
+                </li>
+              }
+            </ul>
+
+            <div class="add-row">
+              <input class="add-input" [value]="newLabel()" (input)="newLabel.set($any($event.target).value)"
+                     (keydown.enter)="addTask()" placeholder="Add a task…" />
+              <select class="add-pts" (change)="newPoints.set(+$any($event.target).value)" title="Points">
+                @for (p of pointOptions; track p) {
+                  <option [value]="p" [selected]="p === newPoints()">{{ p }}</option>
+                }
+              </select>
+              <button type="button" class="btn" (click)="addTask()" [disabled]="!newLabel().trim()">Add</button>
+            </div>
+          </section>
+        }
+      }
+    </div>
+  </aside>
+}

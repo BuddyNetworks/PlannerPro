@@ -4,6 +4,8 @@ import { firstValueFrom } from 'rxjs';
 
 interface MeResponse {
   email: string;
+  displayName: string;
+  isAdmin: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -11,6 +13,8 @@ export class Auth {
   private readonly http = inject(HttpClient);
 
   readonly user = signal<string | null>(null);
+  readonly displayName = signal<string | null>(null);
+  readonly isAdmin = signal(false);
   readonly isAuthenticated = signal(false);
   /** True until the initial /me probe resolves, so guards can wait. */
   readonly ready = signal(false);
@@ -18,8 +22,7 @@ export class Auth {
   /** Called once at startup to learn whether an auth cookie is already valid. */
   async probe(): Promise<boolean> {
     try {
-      const me = await firstValueFrom(this.http.get<MeResponse>('/api/auth/me'));
-      this.setUser(me.email);
+      await this.fetchMe();
     } catch {
       this.clear();
     } finally {
@@ -31,7 +34,8 @@ export class Auth {
   async login(email: string, password: string): Promise<boolean> {
     try {
       await firstValueFrom(this.http.post('/api/auth/login', { email, password }));
-      this.setUser(email);
+      // The login response carries only the email; fetch /me for role + name.
+      await this.fetchMe();
       return true;
     } catch {
       this.clear();
@@ -47,13 +51,18 @@ export class Auth {
     }
   }
 
-  private setUser(email: string) {
-    this.user.set(email);
+  private async fetchMe(): Promise<void> {
+    const me = await firstValueFrom(this.http.get<MeResponse>('/api/auth/me'));
+    this.user.set(me.email);
+    this.displayName.set(me.displayName);
+    this.isAdmin.set(me.isAdmin);
     this.isAuthenticated.set(true);
   }
 
   private clear() {
     this.user.set(null);
+    this.displayName.set(null);
+    this.isAdmin.set(false);
     this.isAuthenticated.set(false);
   }
 }

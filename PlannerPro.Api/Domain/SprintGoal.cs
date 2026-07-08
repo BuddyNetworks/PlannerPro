@@ -15,8 +15,11 @@ public class SprintGoal
     public int ProjectId { get; set; }
     public Project Project { get; set; } = null!;
 
-    /// <summary>Short, single-outcome statement of the goal.</summary>
+    /// <summary>Short, single-outcome statement of the goal (plain-text headline).</summary>
     public required string GoalText { get; set; }
+
+    /// <summary>Optional longer notes/context for the goal, stored as Markdown.</summary>
+    public string? Notes { get; set; }
 
     public GoalStatus Status { get; set; } = GoalStatus.NotStarted;
 

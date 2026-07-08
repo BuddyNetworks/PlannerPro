@@ -6,7 +6,10 @@
       <span class="dot"></span>
       <span class="pname">{{ col.projectName }}</span>
     </div>
-    <div class="pts" [class.warn]="col.points > 24">{{ col.points }} pts</div>
+    <div class="head-right">
+      <div class="pts" [class.warn]="col.points > 24">{{ col.points }} pts</div>
+      <button type="button" class="edit-col" (click)="openDrawer()" title="Open editor (goal notes, task details)">Edit</button>
+    </div>
   </header>
 
   <!-- Goal -->
@@ -39,11 +42,16 @@
           }
         </select>
         <span class="progress">{{ completed() }}/{{ col.tasks.length }} done</span>
+        <button type="button" class="open-goal" (click)="openGoal()" title="Edit goal & notes">⤢</button>
       </div>
     } @else {
       <button type="button" class="set-goal" (click)="startEditGoal()">+ Set sprint goal</button>
     }
   </div>
+
+  @if (col.notes) {
+    <div class="notes-preview md-preview" (click)="openGoal()" title="Click to edit notes" [innerHTML]="col.notes | markdown"></div>
+  }
 
   <!-- Tasks -->
   <ul class="tasks">
@@ -68,6 +76,9 @@
           />
         } @else {
           <span class="task-label" (click)="startEditTask(task)" title="Click to edit">{{ task.label }}</span>
+          @if (task.description) {
+            <button type="button" class="has-desc" (click)="openTask(task)" title="Has description — open task editor">📝</button>
+          }
         }
 
         <select
@@ -93,6 +104,19 @@
           }
         </select>
 
+        <select
+          class="task-assignee"
+          [class.unassigned]="!task.assigneeId"
+          (change)="changeAssignee(task, $any($event.target).value)"
+          [title]="task.assigneeName ? 'Assigned to ' + task.assigneeName : 'Unassigned'"
+        >
+          <option value="" [selected]="!task.assigneeId">— none</option>
+          @for (u of assignees(); track u.userId) {
+            <option [value]="u.userId" [selected]="u.userId === task.assigneeId">{{ u.displayName }}</option>
+          }
+        </select>
+
+        <button type="button" class="open-task" (click)="openTask(task)" title="Open task editor">⤢</button>
         <button type="button" class="del" (click)="remove(task)" title="Delete task">×</button>
       </li>
     }

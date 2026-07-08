@@ -1,0 +1,82 @@
+name: PlannerPro-Web-Dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'PlannerPro.Web/**'
+      - 'k8s/web-deployment.yml'
+      - 'k8s/web-service.yml'
+      - 'k8s/ingress.yml'
+      - '.github/workflows/web-dev.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: buddynetworks.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # The Web Dockerfile builds the Angular app internally (node:22-alpine ->
+      # nginx), so the build context is PlannerPro.Web and no npm step is needed.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./PlannerPro.Web
+          file: ./PlannerPro.Web/Dockerfile
+          push: true
+          tags: |
+            buddynetworks.azurecr.io/plannerproweb:${{ github.run_number }}
+            buddynetworks.azurecr.io/plannerproweb:latest
+
+      - name: Upload manifests as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-web
+          path: k8s/
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: 'BuddyNetworksnetworks-1737.brr-dev-ingress'
+    steps:
+      - name: Download manifests artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: k8s-web
+          path: k8s/
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+
+      - name: Deploy to AKS
+        run: |
+          kubectl apply -n brr-dev-ingress -f k8s/web-service.yml
+          kubectl apply -n brr-dev-ingress -f k8s/web-deployment.yml
+          kubectl apply -n brr-dev-ingress -f k8s/ingress.yml
+          kubectl set image deployment/plannerproweb plannerproweb=buddynetworks.azurecr.io/plannerproweb:${{ github.run_number }} -n brr-dev-ingress
+          kubectl rollout status deployment/plannerproweb -n brr-dev-ingress --timeout=120s

@@ -30,7 +30,10 @@
     <SpaDist>$(SpaRoot)\dist\PlannerPro.Web\browser</SpaDist>
   </PropertyGroup>
 
-  <Target Name="BuildAngularSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+  <!-- SkipSpaBuild=true skips the Angular step so the API can be published as a
+       standalone container (the plannerproweb image owns the front end). The
+       local `dotnet publish` single-deployable build leaves it unset → SPA builds. -->
+  <Target Name="BuildAngularSpa" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(SkipSpaBuild)' != 'true'">
     <Message Importance="high" Text="Building Angular SPA for production…" />
     <!-- Clean install only on a fresh checkout (e.g. CI); locally reuse existing
          node_modules so we don't fight file locks from the dev server. -->

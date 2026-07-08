@@ -1,0 +1,86 @@
+name: PlannerPro-Api-Dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'PlannerPro.Api/**'
+      - 'PlannerPro.ServiceDefaults/**'
+      - 'k8s/api-deployment.yml'
+      - 'k8s/api-service.yml'
+      - 'k8s/ingress.yml'
+      - '.github/workflows/api-dev.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: buddynetworks.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # Build context is the repo root: the API image references
+      # PlannerPro.ServiceDefaults (AddServiceDefaults) and publishes with
+      # /p:SkipSpaBuild=true so the image stays Node-free.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./PlannerPro.Api/Dockerfile
+          push: true
+          tags: |
+            buddynetworks.azurecr.io/plannerproapi:${{ github.run_number }}
+            buddynetworks.azurecr.io/plannerproapi:latest
+
+      - name: Upload manifests as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-api
+          path: k8s/
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: 'BuddyNetworksnetworks-1737.brr-dev-ingress'
+    steps:
+      - name: Download manifests artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: k8s-api
+          path: k8s/
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+
+      # NOTE: the plannerpro-secrets Secret (connection string + seed user) is
+      # applied once out of band — see k8s/plannerpro-secrets.example.yml.
+      - name: Deploy to AKS
+        run: |
+          kubectl apply -n brr-dev-ingress -f k8s/api-service.yml
+          kubectl apply -n brr-dev-ingress -f k8s/api-deployment.yml
+          kubectl apply -n brr-dev-ingress -f k8s/ingress.yml
+          kubectl set image deployment/plannerproapi plannerproapi=buddynetworks.azurecr.io/plannerproapi:${{ github.run_number }} -n brr-dev-ingress
+          kubectl rollout status deployment/plannerproapi -n brr-dev-ingress --timeout=180s

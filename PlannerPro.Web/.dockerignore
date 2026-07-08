@@ -1,0 +1,7 @@
+# Web build context (PlannerPro.Web). node_modules is restored inside the image.
+node_modules
+dist
+.angular
+.vscode
+.git
+*.md

@@ -1,0 +1,125 @@
+<section class="team">
+  <header class="page-head">
+    <div>
+      <h1>Team</h1>
+      <p class="sub">Manage who can sign in and their default per-sprint capacity.</p>
+    </div>
+    <div class="head-actions">
+      <a class="mini" routerLink="/capacity">Capacity planning →</a>
+      <button type="button" class="mini primary" (click)="toggleAdd()">
+        {{ showAdd() ? 'Close' : '+ Add user' }}
+      </button>
+    </div>
+  </header>
+
+  @if (showAdd()) {
+    <form class="add-card" (submit)="$event.preventDefault(); add()">
+      <div class="grid">
+        <label>
+          <span>Display name</span>
+          <input [value]="nName()" (input)="nName.set($any($event.target).value)" placeholder="Casey" />
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" [value]="nEmail()" (input)="nEmail.set($any($event.target).value)" placeholder="casey@example.com" />
+        </label>
+        <label>
+          <span>Temporary password</span>
+          <input type="password" [value]="nPassword()" (input)="nPassword.set($any($event.target).value)" placeholder="8+ characters" />
+        </label>
+        <label class="cap">
+          <span>Capacity (pts/sprint)</span>
+          <input type="number" min="0" max="200" [value]="nCapacity()" (input)="nCapacity.set(+$any($event.target).value)" />
+        </label>
+        <label class="check">
+          <input type="checkbox" [checked]="nAdmin()" (change)="nAdmin.set($any($event.target).checked)" />
+          <span>Administrator</span>
+        </label>
+      </div>
+      @if (addError()) { <p class="err">{{ addError() }}</p> }
+      <div class="row-actions">
+        <button type="submit" class="mini primary" [disabled]="busy()">Create user</button>
+        <button type="button" class="mini" (click)="toggleAdd()">Cancel</button>
+      </div>
+    </form>
+  }
+
+  @if (store.isLoading()) {
+    <p class="muted">Loading team…</p>
+  } @else if (store.error()) {
+    <p class="err">Couldn’t load the team. You may not have admin access.</p>
+  } @else {
+    <ul class="user-list">
+      @for (u of store.value(); track u.id) {
+        <li class="user" [class.editing]="editingId() === u.id">
+          @if (editingId() === u.id) {
+            <!-- edit mode -->
+            <div class="edit-grid">
+              <label>
+                <span>Display name</span>
+                <input [value]="eName()" (input)="eName.set($any($event.target).value)" />
+              </label>
+              <label class="cap">
+                <span>Capacity</span>
+                <input type="number" min="0" max="200" [value]="eCapacity()" (input)="eCapacity.set(+$any($event.target).value)" />
+              </label>
+              <label class="check" [class.disabled]="lastAdmin(u)">
+                <input type="checkbox" [checked]="eAdmin()" [disabled]="lastAdmin(u)"
+                       (change)="eAdmin.set($any($event.target).checked)" />
+                <span>Administrator</span>
+              </label>
+            </div>
+            <div class="row-actions">
+              <button type="button" class="mini primary" (click)="saveEdit(u)" [disabled]="busy()">Save</button>
+              <button type="button" class="mini" (click)="cancelEdit()">Cancel</button>
+            </div>
+          } @else {
+            <!-- display mode -->
+            <div class="who">
+              <div class="avatar">{{ (u.displayName || u.email).charAt(0).toUpperCase() }}</div>
+              <div class="meta">
+                <div class="name-line">
+                  <span class="name">{{ u.displayName }}</span>
+                  @if (u.isAdmin) { <span class="badge admin">Admin</span> }
+                  @if (isSelf(u)) { <span class="badge you">You</span> }
+                </div>
+                <span class="email">{{ u.email }}</span>
+              </div>
+            </div>
+            <div class="cap-chip" title="Default capacity per sprint">{{ u.defaultCapacityPoints }} pts</div>
+            <div class="actions">
+              <button type="button" class="link" (click)="startEdit(u)">Edit</button>
+              <button type="button" class="link" (click)="startReset(u)">Reset password</button>
+              <button type="button" class="link danger"
+                      [disabled]="isSelf(u) || lastAdmin(u)"
+                      [title]="isSelf(u) ? 'You cannot delete your own account' : (lastAdmin(u) ? 'Cannot remove the last admin' : 'Delete user')"
+                      (click)="askDelete(u)">Delete</button>
+            </div>
+          }
+
+          <!-- reset password inline -->
+          @if (resettingId() === u.id) {
+            <div class="inline-panel">
+              <input type="password" placeholder="New password (8+ chars)"
+                     [value]="resetPw()" (input)="resetPw.set($any($event.target).value)" />
+              <button type="button" class="mini primary" (click)="saveReset(u)" [disabled]="busy()">Set password</button>
+              <button type="button" class="mini" (click)="cancelReset()">Cancel</button>
+            </div>
+          }
+
+          <!-- delete confirm inline -->
+          @if (confirmingId() === u.id) {
+            <div class="inline-panel danger-panel">
+              <span>Delete <strong>{{ u.displayName }}</strong>? Their login is removed and their tasks become unassigned.</span>
+              <button type="button" class="mini danger-btn" (click)="remove(u)" [disabled]="busy()">Delete</button>
+              <button type="button" class="mini" (click)="cancelDelete()">Cancel</button>
+            </div>
+          }
+
+          @if (resetDone() === u.id) { <p class="ok-note">Password updated.</p> }
+          @if (rowError()?.id === u.id) { <p class="err">{{ rowError()!.msg }}</p> }
+        </li>
+      }
+    </ul>
+  }
+</section>

@@ -16,7 +16,7 @@ public static class DbSeeder
         await SeedProjectsAsync(db);
         await SeedSprintsAsync(db);
         await SeedPlaceholderGoalsAsync(db, logger);
-        await SeedSingleUserAsync(services, config, logger);
+        await SeedAdminUserAsync(services, db, config, logger);
     }
 
     private static async Task SeedProjectsAsync(PlannerDbContext db)
@@ -138,7 +138,12 @@ public static class DbSeeder
         logger.LogInformation("Seeded goals + tasks for the first 3 sprints across 3 projects.");
     }
 
-    private static async Task SeedSingleUserAsync(IServiceProvider services, IConfiguration config, ILogger logger)
+    /// <summary>Seeds the first login user as an admin (from config/user-secrets).
+    /// On the very first run this also assigns the seeded demo tasks to that admin
+    /// so the capacity grid shows real load out of the box. Skips entirely once the
+    /// user exists, so it never overrides later manual changes.</summary>
+    private static async Task SeedAdminUserAsync(
+        IServiceProvider services, PlannerDbContext db, IConfiguration config, ILogger logger)
     {
         var email = config["SeedUser:Email"];
         var password = config["SeedUser:Password"];
@@ -151,15 +156,56 @@ public static class DbSeeder
             return;
         }
 
-        var users = services.GetRequiredService<UserManager<IdentityUser>>();
-        if (await users.FindByEmailAsync(email) is not null) return;
+        var users = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await users.FindByEmailAsync(email);
 
-        var user = new IdentityUser { UserName = email, Email = email, EmailConfirmed = true };
-        var result = await users.CreateAsync(user, password);
-        if (result.Succeeded)
-            logger.LogInformation("Seeded single login user {Email}.", email);
+        if (user is null)
+        {
+            user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true,
+                DisplayName = email.Split('@')[0],
+                IsAdmin = true,
+                DefaultCapacityPoints = 24,
+            };
+            var result = await users.CreateAsync(user, password);
+            if (!result.Succeeded)
+            {
+                logger.LogError("Failed to seed login user: {Errors}",
+                    string.Join("; ", result.Errors.Select(e => e.Description)));
+                return;
+            }
+            logger.LogInformation("Seeded admin login user {Email}.", email);
+        }
         else
-            logger.LogError("Failed to seed login user: {Errors}",
-                string.Join("; ", result.Errors.Select(e => e.Description)));
+        {
+            // Existing owner (e.g. a DB created before capacity planning): make sure
+            // they are an admin with a display name and a sane capacity. Idempotent.
+            var changed = false;
+            if (!user.IsAdmin) { user.IsAdmin = true; changed = true; }
+            if (string.IsNullOrWhiteSpace(user.DisplayName)) { user.DisplayName = email.Split('@')[0]; changed = true; }
+            if (user.DefaultCapacityPoints <= 0) { user.DefaultCapacityPoints = 24; changed = true; }
+            if (changed)
+            {
+                await users.UpdateAsync(user);
+                logger.LogInformation("Backfilled admin/display-name/capacity on existing user {Email}.", email);
+            }
+        }
+
+        // One-time: if no task has an assignee yet (fresh DB or first rollout of
+        // assignment), give the demo tasks an owner so the capacity grid is non-empty.
+        // Skips once any task is assigned, so it never clobbers deliberate changes.
+        if (!await db.Tasks.AnyAsync(t => t.AssigneeId != null))
+        {
+            var unassigned = await db.Tasks.ToListAsync();
+            foreach (var t in unassigned) t.AssigneeId = user.Id;
+            if (unassigned.Count > 0)
+            {
+                await db.SaveChangesAsync();
+                logger.LogInformation("Assigned {Count} seeded tasks to {Email}.", unassigned.Count, email);
+            }
+        }
     }
 }

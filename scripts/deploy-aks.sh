@@ -57,7 +57,6 @@ if [[ "${SKIP_APPLY}" != "1" ]]; then
   kubectl apply -n "${NAMESPACE}" -f "${ROOT}/k8s/api-deployment.yml"
   kubectl apply -n "${NAMESPACE}" -f "${ROOT}/k8s/web-service.yml"
   kubectl apply -n "${NAMESPACE}" -f "${ROOT}/k8s/web-deployment.yml"
-  kubectl apply -n "${NAMESPACE}" -f "${ROOT}/k8s/ingress.yml"
 fi
 
 # --- 4. Update AKS to the freshly-pushed tag & wait ---------------------------
