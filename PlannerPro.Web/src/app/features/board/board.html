@@ -1,0 +1,61 @@
+@let b = board();
+
+<div class="board-page">
+  <section class="sprint-header">
+    <div class="nav-block">
+      <button
+        type="button"
+        class="nav-btn"
+        [disabled]="!b?.prev"
+        (click)="store.goto(b!.prev)"
+        title="Previous sprint"
+      >‹</button>
+
+      <div class="sprint-id">
+        @if (b) {
+          <div class="num">Sprint {{ b.sprint.number }}</div>
+          <div class="range">{{ formatRange(b.sprint.startDate, b.sprint.endDate) }}</div>
+        } @else {
+          <div class="num">Loading…</div>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="nav-btn"
+        [disabled]="!b?.next"
+        (click)="store.goto(b!.next)"
+        title="Next sprint"
+      >›</button>
+
+      <button type="button" class="today-btn" (click)="store.loadCurrent()" title="Jump to current sprint">
+        Today
+      </button>
+    </div>
+
+    @if (b) {
+      <div class="effort" [class.over]="b.isOverloaded">
+        <div class="effort-text">
+          <span class="pts">{{ b.totalPoints }}</span>
+          <span class="of">/ {{ b.overloadThreshold }} pts</span>
+          @if (b.isOverloaded) {
+            <span class="badge-over">⚠ Overloaded</span>
+          }
+        </div>
+        <div class="meter">
+          <div class="fill" [style.width.%]="effortFraction() * 100"></div>
+        </div>
+      </div>
+    }
+  </section>
+
+  @if (b) {
+    <section class="columns">
+      @for (col of b.columns; track col.projectId) {
+        <app-board-column [column]="col" />
+      }
+    </section>
+  } @else if (!loading()) {
+    <p class="empty">No sprint data.</p>
+  }
+</div>

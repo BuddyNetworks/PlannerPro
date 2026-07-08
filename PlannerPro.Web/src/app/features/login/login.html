@@ -1,0 +1,39 @@
+<div class="login-wrap">
+  <form class="card" (submit)="submit($event)">
+    <div class="brand">
+      <span class="logo">◧</span>
+      <span>PlannerPro</span>
+    </div>
+    <p class="subtitle">Sprint planning across your projects.</p>
+
+    <label>
+      <span>Email</span>
+      <input
+        type="email"
+        autocomplete="username"
+        [value]="email()"
+        (input)="email.set($any($event.target).value)"
+        required
+      />
+    </label>
+
+    <label>
+      <span>Password</span>
+      <input
+        type="password"
+        autocomplete="current-password"
+        [value]="password()"
+        (input)="password.set($any($event.target).value)"
+        required
+      />
+    </label>
+
+    @if (error()) {
+      <div class="error">{{ error() }}</div>
+    }
+
+    <button type="submit" class="primary" [disabled]="submitting()">
+      {{ submitting() ? 'Signing in…' : 'Sign in' }}
+    </button>
+  </form>
+</div>

@@ -1,0 +1,21 @@
+@if (auth.isAuthenticated()) {
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◧</span>
+      <span class="name">PlannerPro</span>
+    </div>
+    <nav class="nav">
+      <a routerLink="/board" routerLinkActive="active">Sprint Board</a>
+      <a routerLink="/timeline" routerLinkActive="active">Timeline</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="user">
+      <span class="email">{{ auth.user() }}</span>
+      <button type="button" class="link" (click)="logout()">Sign out</button>
+    </div>
+  </header>
+}
+
+<main class="content">
+  <router-outlet />
+</main>

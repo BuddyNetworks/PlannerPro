@@ -1,0 +1,68 @@
+@let d = data();
+
+<div class="timeline-page">
+  <header class="tl-head">
+    <h1>Timeline</h1>
+    <p class="sub">Every sprint through 2027 · click a row to open its board</p>
+  </header>
+
+  @if (d) {
+    <div class="tl-scroll">
+      <table class="tl">
+        <thead>
+          <tr>
+            <th class="c-sprint">Sprint</th>
+            @for (p of d.projects; track p.id) {
+              <th class="c-proj" [style.--proj]="p.colorHex">
+                <span class="dot"></span>{{ p.name }}
+              </th>
+            }
+            <th class="c-total">Σ pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of d.rows; track row.sprint.id) {
+            <tr
+              class="tl-row"
+              [class.current]="row.sprint.number === currentNumber()"
+              [class.overloaded]="row.isOverloaded"
+              (click)="openBoard(row)"
+            >
+              <td class="c-sprint">
+                <div class="s-num">S{{ row.sprint.number }}</div>
+                <div class="s-range">{{ shortRange(row.sprint.startDate, row.sprint.endDate) }}</div>
+              </td>
+
+              @for (cell of row.cells; track cell.projectId) {
+                <td class="c-cell">
+                  @if (cell.goalText) {
+                    <div class="goal" [title]="cell.goalText">{{ cell.goalText }}</div>
+                    <div class="meta">
+                      <span class="pill" [class]="statusClass(cell.status)">
+                        {{ statusLabel[cell.status ?? 'NotStarted'] }}
+                      </span>
+                      @if (cell.points > 0) {
+                        <span class="cpts">{{ cell.points }}</span>
+                      }
+                    </div>
+                  } @else {
+                    <span class="empty">—</span>
+                  }
+                </td>
+              }
+
+              <td class="c-total">
+                <span class="tot" [class.over]="row.isOverloaded">{{ row.totalPoints }}</span>
+                @if (row.isOverloaded) {
+                  <span class="warn" title="Over 24 points">⚠</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (!loading()) {
+    <p class="empty-state">No timeline data.</p>
+  }
+</div>

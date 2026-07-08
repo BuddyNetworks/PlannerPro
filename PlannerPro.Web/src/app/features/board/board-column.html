@@ -1,0 +1,117 @@
+@let col = column();
+
+<article class="col" [style.--proj]="col.colorHex">
+  <header class="col-head">
+    <div class="title">
+      <span class="dot"></span>
+      <span class="pname">{{ col.projectName }}</span>
+    </div>
+    <div class="pts" [class.warn]="col.points > 24">{{ col.points }} pts</div>
+  </header>
+
+  <!-- Goal -->
+  <div class="goal">
+    @if (editingGoal()) {
+      <textarea
+        class="goal-edit"
+        rows="2"
+        [value]="goalDraft()"
+        (input)="goalDraft.set($any($event.target).value)"
+        (keydown.enter)="$event.preventDefault(); saveGoal()"
+        (keydown.escape)="cancelGoal()"
+        placeholder="One clear outcome for this sprint…"
+        autofocus
+      ></textarea>
+      <div class="goal-actions">
+        <button type="button" class="mini primary" (click)="saveGoal()">Save</button>
+        <button type="button" class="mini" (click)="cancelGoal()">Cancel</button>
+      </div>
+    } @else if (hasGoal()) {
+      <p class="goal-text" (click)="startEditGoal()" title="Click to edit goal">{{ col.goalText }}</p>
+      <div class="goal-meta">
+        <select
+          class="status"
+          [class]="'st-' + (col.status ?? 'NotStarted').toLowerCase()"
+          (change)="onStatusChange($any($event.target).value)"
+        >
+          @for (s of statuses; track s) {
+            <option [value]="s" [selected]="s === (col.status ?? 'NotStarted')">{{ statusLabel[s] }}</option>
+          }
+        </select>
+        <span class="progress">{{ completed() }}/{{ col.tasks.length }} done</span>
+      </div>
+    } @else {
+      <button type="button" class="set-goal" (click)="startEditGoal()">+ Set sprint goal</button>
+    }
+  </div>
+
+  <!-- Tasks -->
+  <ul class="tasks">
+    @for (task of col.tasks; track task.id) {
+      <li class="task" [class.done]="task.isDone">
+        <input
+          type="checkbox"
+          [checked]="task.isDone"
+          (change)="toggle(task)"
+          title="Toggle complete"
+        />
+
+        @if (editingTaskId() === task.id) {
+          <input
+            class="task-edit"
+            [value]="taskDraft()"
+            (input)="taskDraft.set($any($event.target).value)"
+            (keydown.enter)="saveTask(task)"
+            (keydown.escape)="editingTaskId.set(null)"
+            (blur)="saveTask(task)"
+            autofocus
+          />
+        } @else {
+          <span class="task-label" (click)="startEditTask(task)" title="Click to edit">{{ task.label }}</span>
+        }
+
+        <select
+          class="task-prio"
+          [class]="'prio-' + (task.priority ?? 'none').toLowerCase()"
+          (change)="changePriority(task, $any($event.target).value)"
+          title="Priority"
+        >
+          <option value="" [selected]="!task.priority">–</option>
+          @for (p of priorities; track p) {
+            <option [value]="p" [selected]="p === task.priority">{{ priorityAbbr[p] }}</option>
+          }
+        </select>
+
+        <select
+          class="task-pts"
+          [class.warn]="task.points > warnAbove"
+          (change)="changePoints(task, $any($event.target).value)"
+          [title]="task.points > warnAbove ? 'Above 8 — consider breaking this down' : 'Story points'"
+        >
+          @for (p of pointOptions; track p) {
+            <option [value]="p" [selected]="p === task.points">{{ p }}</option>
+          }
+        </select>
+
+        <button type="button" class="del" (click)="remove(task)" title="Delete task">×</button>
+      </li>
+    }
+  </ul>
+
+  <!-- Add task -->
+  <div class="add-row">
+    <input
+      class="add-input"
+      [value]="newLabel()"
+      (input)="newLabel.set($any($event.target).value)"
+      (keydown.enter)="addTask()"
+      placeholder="Add a task…"
+    />
+    <select class="add-pts" (change)="newPoints.set(+$any($event.target).value)" title="Points">
+      @for (p of pointOptions; track p) {
+        <option [value]="p" [selected]="p === newPoints()">{{ p }}</option>
+      }
+    </select>
+    <button type="button" class="add-btn" (click)="addTask()" [disabled]="!newLabel().trim()">Add</button>
+  </div>
+</article>
